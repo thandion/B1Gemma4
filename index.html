@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<body>
+  <script>
+    const STORAGE_KEY = 'b1_vocab_data';
+
+    function getData() {
+      const data = localStorage.getItem(STORAGE_KEY);
+      return data ? JSON.parse(data) : {};
+    }
+
+    function saveData(data) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    window['ai_edge_gallery_get_result'] = async (dataStr) => {
+      try {
+        const input = JSON.parse(dataStr);
+        const action = input.action;
+        const allData = getData();
+        let resultMessage = "";
+        let showDashboard = input.show_dashboard === true;
+
+        if (action === 'log_answer') {
+          const word = input.word.trim().toLowerCase();
+          const isCorrect = input.correct;
+
+          if (!allData[word]) {
+            allData[word] = { correct: 0, wrong: 0, lastTested: new Date().toISOString() };
+          } else {
+            allData[word].lastTested = new Date().toISOString();
+          }
+
+          if (isCorrect) {
+            allData[word].correct += 1;
+            resultMessage = `Logged correct answer for "${word}".`;
+          } else {
+            allData[word].wrong += 1;
+            resultMessage = `Logged wrong answer for "${word}".`;
+          }
+          
+          saveData(allData);
+
+        } else if (action === 'get_progress') {
+          const words = Object.keys(allData);
+          const totalStudied = words.length;
+          
+          // Sort words by most wrong answers
+          const weakestWords = words
+            .map(w => ({ word: w, ...allData[w] }))
+            .sort((a, b) => b.wrong - a.wrong)
+            .slice(0, 10);
+
+          resultMessage = `Total words interacted with: ${totalStudied}.\nWeakest words to target next:\n` + 
+                          weakestWords.map(w => `- ${w.word} (Wrong: ${w.wrong}, Correct: ${w.correct})`).join('\n');
+
+        } else if (action === 'wipe_data') {
+          localStorage.removeItem(STORAGE_KEY);
+          resultMessage = "Vocabulary progress wiped.";
+        } else {
+          throw new Error(`Unknown action: ${action}`);
+        }
+
+        const response = { result: resultMessage };
+
+        if (showDashboard) {
+          response.webview = { url: 'dashboard.html' };
+        }
+
+        return JSON.stringify(response);
+
+      } catch (e) {
+        console.error(e);
+        return JSON.stringify({ error: `Vocab Tracker error: ${e.message}` });
+      }
+    };
+  </script>
+</body>
+</html>
