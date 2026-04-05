@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>B1 Vocabulary Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg-gradient: linear-gradient(135deg, #121212, #1e1e1e, #2d2d2d);
+      --glass-bg: rgba(255, 255, 255, 0.05);
+      --glass-border: rgba(255, 255, 255, 0.1);
+      --text-main: #ffffff;
+      --text-dim: rgba(255, 255, 255, 0.6);
+      --accent-correct: #4ecca3;
+      --accent-wrong: #ff4d4d;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
+    body { background: var(--bg-gradient); color: var(--text-main); min-height: 100vh; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+    .container { width: 100%; max-width: 600px; }
+    header { text-align: center; margin-bottom: 30px; }
+    h1 { font-weight: 600; font-size: 2rem; color: #fff; }
+    
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px; }
+    .stat-card { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 16px; padding: 20px; text-align: center; }
+    .stat-value { font-size: 2.5rem; font-weight: 600; }
+    .stat-label { font-size: 0.9rem; color: var(--text-dim); text-transform: uppercase; }
+    
+    .chart-container { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 16px; padding: 20px; width: 100%; height: 300px; }
+    .chart-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 15px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Goethe B1 Tracker</h1>
+    </header>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value" id="total-words">0</div>
+        <div class="stat-label">Words Encountered</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="accuracy" style="color: var(--accent-correct)">0%</div>
+        <div class="stat-label">Global Accuracy</div>
+      </div>
+    </div>
+
+    <div class="chart-container">
+      <div class="chart-title">Top 10 Weakest Words</div>
+      <canvas id="weaknessChart"></canvas>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'b1_vocab_data';
+
+    function loadData() {
+      const allData = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      const words = Object.keys(allData);
+      
+      document.getElementById('total-words').textContent = words.length;
+
+      let totalCorrect = 0;
+      let totalWrong = 0;
+      
+      const wordStats = words.map(w => {
+        totalCorrect += allData[w].correct;
+        totalWrong += allData[w].wrong;
+        return { word: w, ...allData[w] };
+      });
+
+      const totalAttempts = totalCorrect + totalWrong;
+      const accuracy = totalAttempts === 0 ? 0 : Math.round((totalCorrect / totalAttempts) * 100);
+      document.getElementById('accuracy').textContent = `${accuracy}%`;
+
+      // Sort by most wrongs to populate chart
+      const weakest = wordStats.sort((a, b) => b.wrong - a.wrong).slice(0, 10);
+      renderChart(weakest);
+    }
+
+    function renderChart(dataList) {
+      const ctx = document.getElementById('weaknessChart').getContext('2d');
+      const labels = dataList.map(d => d.word);
+      const wrongData = dataList.map(d => d.wrong);
+      const correctData = dataList.map(d => d.correct);
+
+      new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            { label: 'Mistakes', data: wrongData, backgroundColor: '#ff4d4d' },
+            { label: 'Correct', data: correctData, backgroundColor: '#4ecca3' }
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          scales: {
+            x: { stacked: true, ticks: { color: 'rgba(255,255,255,0.8)' } },
+            y: { stacked: true, ticks: { color: 'rgba(255,255,255,0.8)', stepSize: 1 } }
+          },
+          plugins: { legend: { labels: { color: '#fff' } } }
+        }
+      });
+    }
+
+    loadData();
+  </script>
+</body>
+</html>
